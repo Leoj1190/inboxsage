@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  outputFileTracingRoot: __dirname,
   images: {
     domains: ['localhost'],
   },
@@ -11,3 +7,5 @@ const nextConfig = {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   },
 }
+
+module.exports = nextConfig

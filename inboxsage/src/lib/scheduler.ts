@@ -270,7 +270,7 @@ export class SchedulerService {
   getStatus(): Record<string, boolean> {
     const status: Record<string, boolean> = {}
     this.tasks.forEach((task, name) => {
-      status[name] = task.running || false
+      status[name] = true // Tasks are running if they exist in the map
     })
     return status
   }

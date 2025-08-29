@@ -65,12 +65,14 @@ export interface DigestItemPreview {
     id: string
     title: string
     url: string
-    author?: string
+    author?: string | null
     publishedAt: Date
-    summary?: string
+    summary?: string | null
     keyTakeaways: string[]
-    relevanceScore?: number
-    imageUrl?: string
+    relevanceScore?: number | null
+    imageUrl?: string | null
+    readingTime?: number | null
+    tags?: string[]
   }
   isHighlight: boolean
   order: number
