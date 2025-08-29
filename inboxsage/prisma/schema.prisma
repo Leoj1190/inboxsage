@@ -1,0 +1,261 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User preferences
+  profile UserProfile?
+  
+  // User's sources and content
+  sources    Source[]
+  topics     Topic[]
+  digests    Digest[]
+  feedback   Feedback[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email preferences
+  digestEmails String[] // Multiple email addresses for digests
+  
+  // Schedule preferences
+  scheduleType     ScheduleType @default(WEEKLY)
+  customDays       Int[]        // Days of week (0-6) for custom schedule
+  timeOfDay        Int          @default(9) // Hour of day (0-23)
+  timezone         String       @default("UTC")
+  
+  // AI preferences
+  summaryDepth     SummaryDepth @default(BASIC)
+  summaryFormat    SummaryFormat @default(MIXED)
+  summaryStyle     SummaryStyle @default(PROFESSIONAL)
+  languagePreference String     @default("en")
+  
+  // Content preferences
+  maxItemsPerDigest Int @default(20)
+  includeImages     Boolean @default(true)
+  includeVideos     Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Topic {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  color       String @default("#3B82F6")
+  
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sources     Source[]
+  articles    Article[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@map("topics")
+}
+
+model Source {
+  id          String     @id @default(cuid())
+  name        String
+  url         String
+  type        SourceType
+  description String?
+  isActive    Boolean    @default(true)
+  
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  topicId     String?
+  topic       Topic?     @relation(fields: [topicId], references: [id])
+  
+  articles    Article[]
+  
+  // Metadata for different source types
+  metadata    Json?      // Store RSS feed info, Twitter handle, etc.
+  
+  lastFetched DateTime?
+  fetchErrors Int        @default(0)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([userId, url])
+  @@map("sources")
+}
+
+model Article {
+  id          String   @id @default(cuid())
+  title       String
+  content     String?  // Full content if available
+  excerpt     String?  // Short excerpt
+  url         String
+  author      String?
+  publishedAt DateTime
+  
+  sourceId    String
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  
+  topicId     String?
+  topic       Topic?   @relation(fields: [topicId], references: [id])
+  
+  // AI processing
+  summary      String?
+  keyTakeaways String[]
+  relevanceScore Float?
+  sentiment    String? // positive, negative, neutral
+  
+  // Content metadata
+  readingTime  Int?     // Estimated reading time in minutes
+  imageUrl     String?
+  tags         String[]
+  
+  // Processing status
+  isProcessed  Boolean  @default(false)
+  isIncluded   Boolean  @default(true) // Whether to include in digests
+  
+  digestItems  DigestItem[]
+  feedback     Feedback[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([sourceId, url])
+  @@map("articles")
+}
+
+model Digest {
+  id          String @id @default(cuid())
+  title       String
+  
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Digest metadata
+  generatedAt  DateTime @default(now())
+  scheduledFor DateTime
+  sentAt       DateTime?
+  
+  // Content
+  introduction String?
+  conclusion   String?
+  highlights   String[] // Top 3 highlights
+  
+  // Email info
+  emailSent    Boolean  @default(false)
+  emailError   String?
+  emailId      String?  // External email service ID
+  
+  items        DigestItem[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("digests")
+}
+
+model DigestItem {
+  id        String @id @default(cuid())
+  
+  digestId  String
+  digest    Digest @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  order     Int    // Order in the digest
+  
+  // Custom summary for this digest (if different from article summary)
+  customSummary String?
+  isHighlight   Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([digestId, articleId])
+  @@map("digest_items")
+}
+
+model Feedback {
+  id        String      @id @default(cuid())
+  
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  articleId String
+  article   Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  type      FeedbackType
+  rating    Int?        // 1-5 rating
+  comment   String?
+  
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, articleId])
+  @@map("feedback")
+}
+
+// Enums
+enum ScheduleType {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum SummaryDepth {
+  BASIC
+  DEEP
+  EXTRACTIVE
+}
+
+enum SummaryFormat {
+  BULLETS
+  PARAGRAPHS
+  MIXED
+}
+
+enum SummaryStyle {
+  PROFESSIONAL
+  CASUAL
+  WITTY
+}
+
+enum SourceType {
+  RSS
+  EMAIL
+  TWITTER
+  MEDIUM
+  CUSTOM_URL
+  NEWSLETTER
+}
+
+enum FeedbackType {
+  USEFUL
+  NOT_USEFUL
+  IRRELEVANT
+  EXCELLENT
+}
